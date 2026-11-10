@@ -712,6 +712,9 @@ let S = null, view = null, me = null, tab = 'puesto';
 function route() {
   Net.stop(); closeModal(); S = null;
   const h = location.hash.slice(1); const p = new URLSearchParams(h);
+  // El QR del proyector trae la conexión: el celular la guarda sola, el alumno no configura nada.
+  const sv = p.get('s');
+  if (sv && /^https:\/\/script\.google(usercontent)?\.com\//.test(sv)) LS.set('tq_api', sv);
   if (p.get('b')) return startBoard(p.get('b').toUpperCase());
   if (p.get('t')) return startTeam(p.get('t').toUpperCase());
   if (p.has('q')) return renderQuiz((p.get('q') || '').toUpperCase());
@@ -754,7 +757,7 @@ async function testApi() {
   LS.set('tq_api', prev);
 }
 function homeJoin() {
-  openModal(`<h2>Entrar con mi equipo</h2><p class="muted small">Escribe el código del tianguis (está en el proyector).</p>
+  openModal(`<h2>Entrar con mi equipo</h2><p class="muted small">Lo más fácil: <b>escanea el QR del proyector</b>. Si ya lo escaneaste antes en este celular, también puedes escribir el código.</p>
     <input id="jc" placeholder="Ej. K7PM" style="text-transform:uppercase;font-size:1.4rem;text-align:center">
     <div class="row" style="margin-top:12px"><button class="btn-p" onclick="if($('jc').value.trim()){closeModal();location.hash='t='+$('jc').value.trim().toUpperCase()}">Entrar</button><button onclick="closeModal()">Cancelar</button></div>`);
 }
@@ -785,7 +788,8 @@ function startBoard(code) {
   Net.start(code, () => { S = build(Net.actions); renderBoard(); }, 2500);
   setTimeout(() => { if (view === 'board' && !S) $('app').innerHTML = `<div class="wrap"><div class="card center"><h2>No encontré el tianguis ${esc(code)}</h2><p class="muted">Revisa el código o la conexión.</p><button onclick="goHome()">Volver</button></div></div>`; }, 7000);
 }
-function teamLink() { return baseLink() + '#t=' + S.code; }
+function withApi(h) { return baseLink() + '#' + h + (apiUrl() ? '&s=' + encodeURIComponent(apiUrl()) : ''); }
+function teamLink() { return withApi('t=' + S.code); }
 function renderBoard() {
   if (!S) return;
   $('topInfo').textContent = `${S.grupo ? S.grupo + ' · ' : ''}Código ${S.code}`;
@@ -828,7 +832,7 @@ function boardMain() {
     </div>
     <div>
       ${showQR ? `<div class="card center"><b>Entren con su equipo</b><div class="timer" style="font-size:2.4rem">${S.code}</div>${qr ? `<div class="qrbig"><img src="${qr}" alt="QR para entrar al tianguis"></div>` : ''}<p class="small muted" style="word-break:break-all">${esc(teamLink())}</p>
-        ${location.protocol === 'file:' ? '<p class="warn small">Abriste el archivo desde tu computadora: los celulares no pueden abrir este enlace. Publícalo (GitHub Pages) para jugar con celulares.</p>' : ''}
+        ${Net.mode() === 'local' ? '<p class="fb bad small" style="text-align:left"><b>Este tablero está en modo prueba</b>: los celulares no pueden unirse. Pulsa ⚙️ Conexión en el Inicio, pega la URL de tu Apps Script y crea un tianguis nuevo.</p>' : ''}${location.protocol === 'file:' ? '<p class="warn small">Abriste el archivo desde tu computadora: los celulares no pueden abrir este enlace. Publícalo (GitHub Pages) para jugar con celulares.</p>' : ''}
         <button class="btn-s" onclick="showQR=false;renderBoard()">Ocultar QR</button></div>` : `<button class="btn-s" style="margin-bottom:10px" onclick="showQR=true;renderBoard()">Mostrar QR para entrar</button>`}
       <div class="card center"><b>Ronda</b><div id="timerD" class="timer">6:00</div>
         <div class="row" style="justify-content:center"><button class="btn-s" onclick="tStart()">▶︎</button><button class="btn-s" onclick="tPause()">⏸</button>
@@ -885,7 +889,7 @@ function startTeam(code) {
   $('app').innerHTML = '<div class="wrap narrow"><p class="center muted">Conectando con el tianguis…</p></div>';
   let first = true;
   Net.start(code, () => { S = build(Net.actions); if (!S) return; if (first || !modalCtx) renderTeam(); else refreshModal(); first = false; }, 3000);
-  setTimeout(() => { if (view === 'team' && !S) $('app').innerHTML = `<div class="wrap narrow"><div class="card center"><h2>No encontré el tianguis ${esc(code)}</h2><p class="muted">Revisa el código con tu maestro.</p><button onclick="goHome()">Volver</button></div></div>`; }, 8000);
+  setTimeout(() => { if (view === 'team' && !S) $('app').innerHTML = `<div class="wrap narrow"><div class="card center"><h2>No encontré el tianguis ${esc(code)}</h2><p class="muted">${Net.mode() === 'local' ? 'Este celular todavía no está conectado. <b>Escanea el QR del proyector</b> (no basta con escribir el código).' : 'Revisa el código con tu maestro o vuelve a escanear el QR del proyector.'}</p><button onclick="goHome()">Volver</button></div></div>`; }, 8000);
 }
 function myT() { return S && me ? S.teams[me] : null; }
 function renderTeam() {
